@@ -1,0 +1,42 @@
+name: Build and Deploy to TestFlight
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-submit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install EAS CLI
+      run: npm install -g eas-cli
+    
+    - name: Build on EAS
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: eas build --platform ios --profile preview --non-interactive
+    
+    - name: Submit to TestFlight
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: eas submit -p ios --latest 
