@@ -37,8 +37,9 @@ jobs:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
       run: |
-        BUILD_OUTPUT=$(eas build --platform ios --profile preview --non-interactive --json)
+        BUILD_OUTPUT=$(eas build --platform ios --profile production --non-interactive --json --apple-id "$APPLE_ID" --apple-password "$APPLE_PASSWORD" --apple-team-id "$APPLE_TEAM_ID")
         BUILD_ID=$(echo $BUILD_OUTPUT | jq -r '.id')
         if [ "$BUILD_ID" = "null" ] || [ -z "$BUILD_ID" ]; then
           echo "Failed to get build ID from output: $BUILD_OUTPUT"
