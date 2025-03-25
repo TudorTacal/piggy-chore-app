@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-submit:
@@ -37,27 +38,43 @@ jobs:
         ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
-        BUILD_ID=$(eas build --platform ios --profile preview --non-interactive --json | jq -r '.id')
+        BUILD_OUTPUT=$(eas build --platform ios --profile preview --non-interactive --json)
+        BUILD_ID=$(echo $BUILD_OUTPUT | jq -r '.id')
+        if [ "$BUILD_ID" = "null" ] || [ -z "$BUILD_ID" ]; then
+          echo "Failed to get build ID from output: $BUILD_OUTPUT"
+          exit 1
+        fi
         echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
         
     - name: Wait for build to complete
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       run: |
-        while true; do
+        MAX_ATTEMPTS=60  # 30 minutes maximum wait time
+        ATTEMPT=1
+        
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo "Checking build status (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
           STATUS=$(eas build:view --json --id $BUILD_ID | jq -r '.status')
-          echo "Build status: $STATUS"
           
           if [ "$STATUS" = "FINISHED" ]; then
             echo "Build completed successfully"
-            break
+            exit 0
           elif [ "$STATUS" = "ERROR" ]; then
             echo "Build failed"
             exit 1
+          elif [ "$STATUS" = "null" ] || [ -z "$STATUS" ]; then
+            echo "Failed to get build status"
+            exit 1
           fi
           
+          echo "Build status: $STATUS"
           sleep 30
+          ATTEMPT=$((ATTEMPT + 1))
         done
+        
+        echo "Build timed out after 30 minutes"
+        exit 1
     
     - name: Submit to TestFlight
       env:
