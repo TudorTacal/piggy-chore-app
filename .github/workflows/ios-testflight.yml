@@ -31,32 +31,6 @@ jobs:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       run: eas init --id ${{ secrets.EAS_PROJECT_ID }} --non-interactive
     
-    - name: Configure EAS credentials
-      env:
-        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      run: |
-        # Create a temporary credentials file
-        cat > credentials.json << EOF
-        {
-          "ios": {
-            "credentialsSource": "remote",
-            "provisioningProfilePath": null,
-            "distributionCertificate": {
-              "path": null,
-              "password": null,
-              "base64Certificate": null,
-              "base64CertificatePassword": null
-            }
-          }
-        }
-        EOF
-        
-        # Configure credentials
-        eas credentials --platform ios --profile production --non-interactive --credentials-file credentials.json
-    
     - name: Build on EAS
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
@@ -106,9 +80,6 @@ jobs:
     - name: Submit to TestFlight
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: eas submit -p ios --latest
     
     - name: Notify on failure
