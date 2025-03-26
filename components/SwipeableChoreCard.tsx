@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Gesture, GestureDetector, ScrollView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,6 +9,8 @@ import Animated, {
   withSequence,
   runOnJS,
   Easing,
+  interpolate,
+  clamp,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -27,6 +29,8 @@ import type { Chore } from '@/types/database';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 80;
 const DELETE_THRESHOLD = SCREEN_WIDTH * 0.4;
+const TOUCH_SLOP = 5;
+const TIME_TO_ACTIVATE_PAN = 100;
 const SPRING_CONFIG = {
   damping: 15,
   stiffness: 300,
@@ -63,10 +67,9 @@ export default function SwipeableChoreCard({
   const cardHeight = useSharedValue(80);
   const cardOpacity = useSharedValue(1);
   const marginVertical = useSharedValue(8);
-  const isGestureActive = useSharedValue(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const touchStart = useSharedValue({ x: 0, y: 0, time: 0 });
   const TaskIcon = TASK_ICONS[chore.title] || Sparkles;
-  const gestureActive = useRef(false);
 
   const resetPosition = () => {
     'worklet';
@@ -93,27 +96,37 @@ export default function SwipeableChoreCard({
   };
 
   const panGesture = Gesture.Pan()
-    .minDistance(5)
-    .onBegin(() => {
-      isGestureActive.value = true;
-      gestureActive.current = true;
+    .manualActivation(true)
+    .onTouchesDown((e) => {
+      touchStart.value = {
+        x: e.changedTouches[0].x,
+        y: e.changedTouches[0].y,
+        time: Date.now(),
+      };
     })
-    .onChange((event) => {
-      if (!isDeleting) {
-        // Add resistance to the swipe
-        const dx = event.translationX;
-        const resistanceFactor = 0.7;
-        translateX.value = dx * resistanceFactor;
+    .onTouchesMove((e, state) => {
+      if (Date.now() - touchStart.value.time > TIME_TO_ACTIVATE_PAN) {
+        state.activate();
+      } else if (
+        Math.abs(touchStart.value.x - e.changedTouches[0].x) > TOUCH_SLOP ||
+        Math.abs(touchStart.value.y - e.changedTouches[0].y) > TOUCH_SLOP
+      ) {
+        state.fail();
       }
     })
-    .onEnd((event) => {
+    .onUpdate(({ translationX }) => {
+      if (!isDeleting) {
+        const clampedValue = clamp(translationX, -DELETE_THRESHOLD, SWIPE_THRESHOLD);
+        translateX.value = clampedValue;
+      }
+    })
+    .onEnd(({ translationX, velocityX }) => {
       if (isDeleting) return;
 
-      const velocity = event.velocityX;
-      const isQuickSwipe = Math.abs(velocity) > 800;
+      const isQuickSwipe = Math.abs(velocityX) > 800;
       const shouldDelete = 
-        event.translationX < -DELETE_THRESHOLD || 
-        (isQuickSwipe && velocity < -800);
+        translationX < -DELETE_THRESHOLD || 
+        (isQuickSwipe && velocityX < -800);
 
       if (shouldDelete) {
         // Quick delete animation
@@ -126,8 +139,8 @@ export default function SwipeableChoreCard({
             runOnJS(handleDelete)();
           })
         );
-      } else if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
-        if (event.translationX > 0) {
+      } else if (Math.abs(translationX) > SWIPE_THRESHOLD) {
+        if (translationX > 0) {
           // Swipe right - Edit
           translateX.value = withSpring(0, SPRING_CONFIG);
           runOnJS(onEdit)();
@@ -139,24 +152,18 @@ export default function SwipeableChoreCard({
         // Reset position with snappy spring
         resetPosition();
       }
-    })
-    .onFinalize(() => {
-      isGestureActive.value = false;
-      gestureActive.current = false;
-    })
-    .simultaneousWithExternalGesture(Gesture.Pan());
+    });
 
   const tapGesture = Gesture.Tap()
-    .maxDuration(250)
     .onEnd(() => {
-      if (!gestureActive.current && translateX.value === 0 && !isDeleting) {
+      if (translateX.value === 0 && !isDeleting) {
         runOnJS(onPress)();
       } else {
         resetPosition();
       }
     });
 
-  const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
+  const composedGesture = Gesture.Simultaneous(panGesture, tapGesture);
 
   const rContainerStyle = useAnimatedStyle(() => ({
     height: cardHeight.value,
@@ -169,25 +176,30 @@ export default function SwipeableChoreCard({
   }));
 
   const rLeftActionStyle = useAnimatedStyle(() => {
-    const opacity = Math.max(0, Math.min(1, translateX.value / SWIPE_THRESHOLD));
+    const opacity = interpolate(
+      translateX.value,
+      [0, SWIPE_THRESHOLD],
+      [0, 1]
+    );
     return {
-      opacity: withTiming(opacity, { duration: 100 }),
+      opacity,
       width: Math.max(0, translateX.value),
     };
   });
 
   const rRightActionStyle = useAnimatedStyle(() => {
-    const opacity = Math.max(0, Math.min(1, -translateX.value / SWIPE_THRESHOLD));
+    const opacity = interpolate(
+      translateX.value,
+      [-SWIPE_THRESHOLD, 0],
+      [1, 0]
+    );
     const progress = Math.min(1, -translateX.value / DELETE_THRESHOLD);
     const isNearDelete = progress > 0.8;
     
     return {
-      opacity: withTiming(opacity, { duration: 100 }),
+      opacity,
       width: Math.max(0, -translateX.value),
-      backgroundColor: withTiming(
-        isNearDelete ? '#B71C1C' : '#D32F2F',
-        { duration: 100 }
-      ),
+      backgroundColor: isNearDelete ? '#B71C1C' : '#D32F2F',
     };
   });
 
