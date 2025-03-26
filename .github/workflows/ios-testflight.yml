@@ -31,15 +31,41 @@ jobs:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       run: eas init --id ${{ secrets.EAS_PROJECT_ID }} --non-interactive
     
-    - name: Build on EAS
+    - name: Configure EAS credentials
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         APPLE_ID: ${{ secrets.APPLE_ID }}
-        ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
-        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       run: |
-        BUILD_OUTPUT=$(eas build --platform ios --profile production --non-interactive --json --apple-id "$APPLE_ID" --apple-password "$APPLE_PASSWORD" --apple-team-id "$APPLE_TEAM_ID")
+        # Create a temporary credentials file
+        cat > credentials.json << EOF
+        {
+          "ios": {
+            "credentialsSource": "remote",
+            "provisioningProfilePath": null,
+            "distributionCertificate": {
+              "path": null,
+              "password": null,
+              "base64Certificate": null,
+              "base64CertificatePassword": null
+            }
+          }
+        }
+        EOF
+        
+        # Configure credentials
+        eas credentials --platform ios --profile production --non-interactive --credentials-file credentials.json
+    
+    - name: Build on EAS
+      env:
+        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      run: |
+        # First, try to build without capturing output to see the full error
+        eas build --platform ios --profile production --non-interactive
+        
+        # If the build succeeds, capture the output for the build ID
+        BUILD_OUTPUT=$(eas build --platform ios --profile production --non-interactive --json)
         BUILD_ID=$(echo $BUILD_OUTPUT | jq -r '.id')
         if [ "$BUILD_ID" = "null" ] || [ -z "$BUILD_ID" ]; then
           echo "Failed to get build ID from output: $BUILD_OUTPUT"
