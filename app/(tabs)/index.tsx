@@ -345,6 +345,14 @@ export default function HomeScreen() {
             contentContainerStyle={styles.tasksListContent}
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
+            bounces={true}
+            alwaysBounceVertical={true}
+            directionalLockEnabled={true}
+            nestedScrollEnabled={true}
+            removeClippedSubviews={true}
+            overScrollMode="always"
+            contentInsetAdjustmentBehavior="automatic"
+            keyboardShouldPersistTaps="handled"
           >
             {chores.map((chore) => (
               <SwipeableChoreCard
