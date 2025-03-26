@@ -34,48 +34,7 @@ jobs:
     - name: Build on EAS
       env:
         EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      run: |
-        # First, try to build without capturing output to see the full error
-        eas build --platform ios --profile production --non-interactive
-        
-        # If the build succeeds, capture the output for the build ID
-        BUILD_OUTPUT=$(eas build --platform ios --profile production --non-interactive --json)
-        BUILD_ID=$(echo $BUILD_OUTPUT | jq -r '.id')
-        if [ "$BUILD_ID" = "null" ] || [ -z "$BUILD_ID" ]; then
-          echo "Failed to get build ID from output: $BUILD_OUTPUT"
-          exit 1
-        fi
-        echo "BUILD_ID=$BUILD_ID" >> $GITHUB_ENV
-        
-    - name: Wait for build to complete
-      env:
-        EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      run: |
-        MAX_ATTEMPTS=60  # 30 minutes maximum wait time
-        ATTEMPT=1
-        
-        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-          echo "Checking build status (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
-          STATUS=$(eas build:view --json --id $BUILD_ID | jq -r '.status')
-          
-          if [ "$STATUS" = "FINISHED" ]; then
-            echo "Build completed successfully"
-            exit 0
-          elif [ "$STATUS" = "ERROR" ]; then
-            echo "Build failed"
-            exit 1
-          elif [ "$STATUS" = "null" ] || [ -z "$STATUS" ]; then
-            echo "Failed to get build status"
-            exit 1
-          fi
-          
-          echo "Build status: $STATUS"
-          sleep 30
-          ATTEMPT=$((ATTEMPT + 1))
-        done
-        
-        echo "Build timed out after 30 minutes"
-        exit 1
+      run: eas build --platform ios --profile production --non-interactive
     
     - name: Submit to TestFlight
       env:
