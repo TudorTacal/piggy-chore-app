@@ -40,7 +40,14 @@ jobs:
         APPLE_ID: ${{ secrets.APPLE_ID }}
         ASC_APP_ID: ${{ secrets.ASC_APP_ID }}
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      run: eas submit -p ios --latest
+      run: |
+        echo "Checking environment variables..."
+        echo "APPLE_ID: $(echo $APPLE_ID | sed 's/\(.\{5\}\).*/\1****/')"
+        echo "ASC_APP_ID: $(echo $ASC_APP_ID | sed 's/\(.\{5\}\).*/\1****/')"
+        echo "APPLE_TEAM_ID: $(echo $APPLE_TEAM_ID | sed 's/\(.\{5\}\).*/\1****/')"
+        echo "EXPO_TOKEN: $(echo $EXPO_TOKEN | sed 's/\(.\{5\}\).*/\1****/')"
+        echo "Running submit command..."
+        eas submit -p ios --latest
     
     - name: Notify on failure
       if: failure()
