@@ -10,20 +10,25 @@ function RootLayoutNav() {
   const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  console.log(isLoading, 'isLoading');
+  
   useEffect(() => {
+    console.log('Auth state changed:', { isLoading, session: !!session, segments });
+    
     if (!isLoading) {
       const inAuthGroup = segments[0] === '(auth)';
 
       if (!session && !inAuthGroup) {
+        console.log('No session, redirecting to login');
         router.replace('/(auth)/login');
       } else if (session && inAuthGroup) {
+        console.log('Has session, redirecting to tabs');
         router.replace('/(tabs)');
       }
     }
   }, [session, segments, isLoading]);
 
-  if (isLoading) {
+  // Only show loading screen if we're actually loading and don't have a session
+  if (isLoading && !session) {
     return <InitialLoading />;
   }
 
