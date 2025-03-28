@@ -35,7 +35,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen 
-        name="(auth)" 
+        name="(auth)/login" 
         options={{ 
           headerShown: false,
           gestureEnabled: false 
